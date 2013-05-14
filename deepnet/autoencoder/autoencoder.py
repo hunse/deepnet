@@ -54,13 +54,13 @@ def batch_call(func, data, batchlen=5000):
     ### assume each row of data is an example
     outdata = None
     nexamples = data.shape[0]
-    
+
     i = 0
     while True:
         iend = min(i + batchlen, nexamples)
         outval = func(data[i:iend])
-        if outdata is None: 
-            outdata = np.zeros((nexamples, outval.shape[1]), dtype=data.dtype) 
+        if outdata is None:
+            outdata = np.zeros((nexamples, outval.shape[1]), dtype=data.dtype)
 
         outdata[i:iend] = outval
         i += batchlen
@@ -85,7 +85,7 @@ def batch_call(func, data, batchlen=5000):
 
 # def unpack(x, orig_args, dtype=theano.config.floatX):
 #     args = []
-#     for 
+#     for
 
 ################################################################################
 class Autoencoder(CacheObject):
@@ -137,7 +137,7 @@ class Autoencoder(CacheObject):
             b = np.zeros(self.nvis, dtype=dtype)
         if c is None:
             c = np.zeros(self.nhid, dtype=dtype)
-            
+
         assert W.shape[0] == self.nvis and W.shape[1] == self.nhid
         assert b.shape[0] == self.nvis
         assert c.shape[0] == self.nhid
@@ -168,13 +168,17 @@ class Autoencoder(CacheObject):
             d[name] = d[name].get_value()
         d['V'] = d['V'].get_value() if not self.tied else None
         return d
-    
+
     def __setstate__(self, state):
         self.__dict__.update(state)
-        for name in ['W', 'V', 'b', 'c']:
+        for name in ['W', 'b', 'c']:
             self.__dict__[name] = theano.shared(name=name, value=state[name])
         self.params = [self.W, self.b, self.c]
-        if not self.tied: self.params.append(self.V)
+        if not self.tied:
+            self.V = theano.shared(name='V', value=state['V'])
+            self.params.append(self.V)
+        else:
+            self.V = self.W.T
 
     @property
     def filters(self):

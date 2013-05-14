@@ -27,7 +27,7 @@ class Trainer(object):
     @property
     def param_masks(self):
         return self.network.param_masks
-    
+
     def cost(self, x, y):
         raise NotImplementedError("Trainer children must implement the cost function")
 
@@ -53,7 +53,7 @@ class Trainer(object):
 class SparseTrainer(Trainer):
     def __init__(self, network, **train_hypers):
         super(SparseTrainer, self).__init__(network)
-        
+
         # self.rho = rho
         # self.lamb = lamb
         # self.noise_std = noise_std
@@ -81,7 +81,7 @@ class SparseTrainer(Trainer):
         return cost, updates
 
 
-def sgd_minibatch_fn(trainer, rate):
+def sgd_minibatch_fn(trainer, rate, clip=None):
     x = T.matrix('x', dtype=trainer.dtype)
     ha, h, ya, y = trainer.get_activs(x)
     cost, ups = trainer.get_cost_updates(x, ha, h, ya, y)
@@ -91,17 +91,19 @@ def sgd_minibatch_fn(trainer, rate):
 
     rate = T.cast(rate, dtype=trainer.dtype)
     for param, grad in zip(trainer.params, grads):
-        updates[param] = param - rate*grad.clip(-1,1)
+        if clip is not None:
+            grad = grad.clip(*clip)
+        updates[param] = param - rate*grad
 
     # rmse = T.mean(T.sqrt(T.mean((x - y)**2, axis=1)))
     # act = T.mean(h)
 
-    return theano.function([x], cost, updates=updates, 
+    return theano.function([x], cost, updates=updates,
                            allow_input_downcast=True)
 
 
 def sgd(trainer, images, timages=None, test_fn=None,
-        nepochs=30, rate=0.05, show=True):
+        nepochs=30, rate=0.05, clip=(-1,1), show=True, vlims=None):
     """
     Unsupervised training using Stochasitc Gradient Descent (SGD)
     """
@@ -115,7 +117,7 @@ def sgd(trainer, images, timages=None, test_fn=None,
     # print trainer.get_train_params()
 
     ### create minibatch learning function
-    train = sgd_minibatch_fn(trainer, rate=rate)
+    train = sgd_minibatch_fn(trainer, rate=rate, clip=clip)
 
     imshape = images.shape[1:]
     batchlen = 100
@@ -132,8 +134,8 @@ def sgd(trainer, images, timages=None, test_fn=None,
             cost += train(batch)
         t = time.time() - t
 
-        test_stats = test(trainer, timages, 
-                          test_fn=test_fn, show=True, fignum=101)
+        test_stats = test(trainer, timages,
+                          test_fn=test_fn, show=show, fignum=101, vlims=vlims)
 
         for k, v in test_stats.items():
             if k in stats: stats[k].append(v)
@@ -155,7 +157,7 @@ def sgd(trainer, images, timages=None, test_fn=None,
     #                      rows=rows, cols=cols, vlims=(-2*r,2*r), grid=True)
 
 
-def test(trainer, timages, test_fn=None, show=True, fignum=None):
+def test(trainer, timages, test_fn=None, show=True, fignum=None, vlims=None):
 
     if test_fn is None:
         test_fn = trainer.network.compVHVraw
@@ -177,7 +179,7 @@ def test(trainer, timages, test_fn=None, show=True, fignum=None):
         rows, cols = 3, 2
 
         ax = plt.subplot(rows, 1, 1)
-        compare([x.reshape(ims_shape), y.reshape(ims_shape)])
+        compare([x.reshape(ims_shape), y.reshape(ims_shape)], vlims=vlims)
 
         ax = plt.subplot(rows, cols, cols+1)
         activations(ha, trainer.network.f.eval)
@@ -271,7 +273,7 @@ def test(trainer, timages, test_fn=None, show=True, fignum=None):
 
 #     # x.set_value(np.zeros((0,0), dtype=self.dtype))
 
-#     print "Done. t = %0.3f s, cost = %0.2e" % (t, mincost) 
+#     print "Done. t = %0.3f s, cost = %0.2e" % (t, mincost)
 #     print_gpu_memory()
 
 #     test_stats = self.test(images.subset(1000), show=True, fignum=101)

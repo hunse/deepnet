@@ -20,17 +20,16 @@ import matplotlib.pyplot as plt
 
 def show(image, ax=None, vlims=None, invert=False):
     kwargs = dict(interpolation='none')
-    if vlims is not None: 
-        assert type(vlims) == tuple
-        kwargs['vmin'] = vlims[0]
-        kwargs['vmax'] = vlims[1]
+    if vlims is not None:
+        assert type(vlims) == tuple and len(vlims) == 2
+        kwargs['vmin'], kwargs['vmax'] = vlims
     if image.ndim < 3:
         kwargs['cmap'] = 'gray' if not invert else 'gist_yarg'
 
     if ax is None: ax = plt.gca()
     ax.imshow(image, **kwargs)
     return ax
- 
+
 def tile(images, ax=None, rows=16, cols=24, random=False,
          grid=False, gridwidth=1, gridcolor='r', **show_params):
     """
@@ -63,7 +62,7 @@ def tile(images, ax=None, rows=16, cols=24, random=False,
 
     if grid:
         for i in xrange(1,rows):
-            ax.plot([-0.5, img.shape[1]-0.5], [i*m-0.5, i*m-0.5], '-', 
+            ax.plot([-0.5, img.shape[1]-0.5], [i*m-0.5, i*m-0.5], '-',
                     color=gridcolor, linewidth=gridwidth)
         for j in xrange(1,cols):
             ax.plot([j*n-0.5, j*n-0.5], [-0.5, img.shape[0]-0.5], '-',
@@ -72,10 +71,10 @@ def tile(images, ax=None, rows=16, cols=24, random=False,
         ax.set_xlim([-0.5, img.shape[1]-0.5])
         ax.set_ylim([-0.5, img.shape[0]-0.5])
         ax.invert_yaxis()
-            
+
 
 def compare(imagesetlist,
-            ax=None, rows=5, cols=20, vlims=(0,1), grid=True, random=False):
+            ax=None, rows=5, cols=20, vlims=None, grid=True, random=False):
     d = len(imagesetlist)
 
     nimages = imagesetlist[0].shape[0]
@@ -107,12 +106,12 @@ def compare(imagesetlist,
 
 
 def activations(acts, func, ax=None):
-    if ax is None: 
+    if ax is None:
         ax = plt.gca()
 
     N = acts.size
     nbins = max(np.sqrt(N), 10)
-    
+
     # minact = np.min(acts)
     # maxact = np.max(acts)
     minact, maxact = (-2, 2)
@@ -150,7 +149,7 @@ def filters(filters, ax=None, **kwargs):
 #         :shape[tuple]      Shape of an image (for unflattening)
 #         :vlims[tuple]      Limits of image values (for display)
 #         """
-        
+
 #         self.images = images
 #         self.shape = tuple(shape)
 #         self.batchlen = batchlen
@@ -183,8 +182,8 @@ def filters(filters, ax=None, **kwargs):
 #         return Imageset.fromdict(d)
 
 #     def imageset_like(self, images, shape=None):
-#         return type(self)(images, 
-#                           shape=self.shape if shape is None else shape, 
+#         return type(self)(images,
+#                           shape=self.shape if shape is None else shape,
 #                           vlims=self.vlims)
 
 #     def image(self, i):
@@ -200,7 +199,7 @@ def filters(filters, ax=None, **kwargs):
 #             return Imageset(self.images[imin:imax], self.shape, vlims=self.vlims)
 
 #     @property
-#     def batchshape(self): 
+#     def batchshape(self):
 #         if self.nbatches is None:
 #             raise Exception('Examples cannot be evenly divided into batches')
 #         else:
@@ -219,7 +218,7 @@ def filters(filters, ax=None, **kwargs):
 #         show(plt.gca(), self.image(ind).reshape(self.shape), vlims=self.vlims)
 #         plt.tight_layout()
 #         plt.draw()
-        
+
 #     def tile(self, fignum=None, rows=16, cols=24, grid=False, random=False):
 #         figure(fignum=fignum, figsize=self.figsize)
 #         tile(plt.gca(), self.images, imshape=self.shape, vlims=self.vlims,
@@ -229,7 +228,7 @@ def filters(filters, ax=None, **kwargs):
 
 #     def compare(self, compim, fignum=None, **kwargs):
 #         figure(fignum=fignum, figsize=self.figsize)
-#         compare(plt.gca(), [self.images, compim.images], imshape=self.shape, 
+#         compare(plt.gca(), [self.images, compim.images], imshape=self.shape,
 #                 vlims=self.vlims, **kwargs)
 #         plt.tight_layout()
 #         plt.draw()
