@@ -1,6 +1,8 @@
 
 import numpy as np
 
+import ipdb
+
 class CacheObject(object):
     """
     A object that can be saved to file, with a cache that is not saved
@@ -16,12 +18,18 @@ class CacheObject(object):
         self.__dict__.update(state)
 
     def to_file(self, file_name):
-        np.savez(file_name, **self.__getstate__())
+        d = {}
+        d['__class__'] = self.__class__
+        d['__dict__'] = self.__getstate__()
+        ipdb.set_trace()
+        np.savez(file_name, **d)
 
-    @classmethod
-    def from_file(cls, file_name):
+    @staticmethod
+    def from_file(file_name):
         npzfile = np.load(file_name)
+        cls = npzfile['__class__'].item()
+        d = npzfile['__dict__'].item()
 
         self = cls.__new__(cls)
-        self.__setstate__(npzfile)
+        self.__setstate__(d)
         return self
