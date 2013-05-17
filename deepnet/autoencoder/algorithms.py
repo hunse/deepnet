@@ -1,106 +1,43 @@
 
-import collections
+# import collections
 import time
+
+import numpy as np
+import numpy.random
 
 import theano
 import theano.tensor as T
 
-import matplotlib.pyplot as plt
-from ..image_tools import *
+# def sgd_minibatch_fn(trainer, rate, clip=None):
+#     x = T.matrix('x', dtype=trainer.dtype)
+#     cost, ups = trainer.get_cost_updates(x)
 
-class Trainer(object):
+#     grads = trainer.grads(cost)
 
-    def __init__(self, network):
-        self.network = network
+#     updates = collections.OrderedDict(ups)
 
-        self.train_params = []
-        self.train_hypers = {}
+#     rate = T.cast(rate, dtype=trainer.dtype)
+#     for param, grad in zip(trainer.params, grads):
+#         if clip is not None:
+#             grad = grad.clip(*clip)
+#         updates[param] = param - rate*grad
 
-    @property
-    def dtype(self):
-        return self.network.dtype
-
-    @property
-    def params(self):
-        return self.network.params
-
-    @property
-    def param_masks(self):
-        return self.network.param_masks
-
-    def cost(self, x, y):
-        raise NotImplementedError("Trainer children must implement the cost function")
-
-    def state_updates(self):
-        pass # children can update states here
-
-    def grads(self, cost):
-        grads = T.grad(cost, self.params)
-
-        for i, p in enumerate(self.params):
-            grads[i] = T.switch(T.isnan(grads[i]), 0.0, grads[i])
-            # grads[i] = grads[i].clip(-1,1)
-            # grads[i] = grads[i].clip(-0.01,0.01)
-            if p in self.param_masks:
-                grads[i] = grads[i] * self.param_masks[p]
-
-        return grads
-
-
-# class ReconTrainer(Trainer):
-#     def cost(self, x, y):
-
-class SparseTrainer(Trainer):
-    def __init__(self, network, **train_hypers):
-        super(SparseTrainer, self).__init__(network)
-
-        # self.rho = rho
-        # self.lamb = lamb
-        # self.noise_std = noise_std
-        # self.train_hypers = dict(rho=rho, lamb=lamb, noise_std=noise_std]
-        self.train_hypers = dict(train_hypers)
-
-        ### initialize training parameters
-        q = np.zeros(self.network.nhid, dtype=self.dtype)
-        self.q = theano.shared(name='q', value=q)
-
-        self.train_params = [q]
-
-    def get_activs(self, x):
-        ha, h, ya, y = self.network.propVHV(x, noisestd=self.train_hypers['noise_std'])
-        return ha, h, ya, y
-
-    def get_cost_updates(self, x, ha, h, ya, y):
-        q = 0.9*self.q + 0.1*h.mean(axis=0)
-
-        lamb = T.cast(self.train_hypers['lamb'], self.dtype)
-        rho = T.cast(self.train_hypers['rho'], self.dtype)
-        cost = ((x - y)**2).mean(axis=0).sum() + lamb*(T.abs_(q - rho)).sum()
-
-        updates = [(self.q, q)]
-        return cost, updates
-
+#     return theano.function([x], cost, updates=updates,
+#                            allow_input_downcast=True)
 
 def sgd_minibatch_fn(trainer, rate, clip=None):
     x = T.matrix('x', dtype=trainer.dtype)
-    ha, h, ya, y = trainer.get_activs(x)
-    cost, ups = trainer.get_cost_updates(x, ha, h, ya, y)
-    grads = trainer.grads(cost)
-
-    updates = collections.OrderedDict(ups)
+    cost, grads, updates = trainer.get_cost_grads_updates(x)
 
     rate = T.cast(rate, dtype=trainer.dtype)
-    for param, grad in zip(trainer.params, grads):
+    for param in trainer.params:
+        grad = grads[param]
         if clip is not None:
             grad = grad.clip(*clip)
         updates[param] = param - rate*grad
 
-    # rmse = T.mean(T.sqrt(T.mean((x - y)**2, axis=1)))
-    # act = T.mean(h)
-
-    return theano.function([x], cost, updates=updates,
+    return theano.function([x], cost, updates=updates.items(),
                            allow_input_downcast=True)
-
 
 def sgd(trainer, images, timages=None, test_fn=None,
         nepochs=30, rate=0.05, clip=(-1,1), show=True, vlims=None):
@@ -119,9 +56,17 @@ def sgd(trainer, images, timages=None, test_fn=None,
     ### create minibatch learning function
     train = sgd_minibatch_fn(trainer, rate=rate, clip=clip)
 
-    imshape = images.shape[1:]
-    batchlen = 100
-    batches = images.reshape((-1, batchlen, imshape[0]*imshape[1]))
+    exshape = images.shape[:-2]
+    imshape = images.shape[-2:]
+    if len(exshape) == 1:
+        ### split into batches
+        batchlen = 100
+        batches = images.reshape((-1, batchlen, np.prod(imshape)))
+    elif len(exshape) == 2:
+        ### already in batches, so just collapse the shape
+        batches = images.reshape(exshape + (np.prod(imshape),))
+    else:
+        raise ValueError("Invalid input image shape %s" % images.shape)
 
     # stats = {'rmse': [], 'hidact': []}
     stats = {}
@@ -148,16 +93,10 @@ def sgd(trainer, images, timages=None, test_fn=None,
     return stats
 
 
-# @property
-# def pretrained(self):
-#     return self.train_stats.has_key('pretrain')
-
-# def plot_filters(ax, filters):
-    # image_tools.tile(ax, self.Warray.T, self.visshape,
-    #                      rows=rows, cols=cols, vlims=(-2*r,2*r), grid=True)
-
-
 def test(trainer, timages, test_fn=None, show=True, fignum=None, vlims=None):
+    import matplotlib.pyplot as plt
+    # from ..image_tools import *
+    from ..image_tools import compare, activations, filters
 
     if test_fn is None:
         test_fn = trainer.network.compVHVraw

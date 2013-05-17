@@ -108,10 +108,6 @@ class Autoencoder(CacheObject):
         self.shape = (self.nvis, self.nhid)
         self.train_stats = {}    # dictionary of training statistics
 
-        self.values = [self.dtype, self.visshape, self.hidshape]
-
-        # self.fn = {}     # dictionary of cached Theano functions
-
         ### Set up random number generators
         if seed is None:
             self.rng = theano.sandbox.rng_mrg.MRG_RandomStreams()
