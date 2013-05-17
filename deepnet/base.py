@@ -1,12 +1,9 @@
 
-import cPickle as pickle
-
-import theano
-import theano.tensor as T
+import numpy as np
 
 class CacheObject(object):
     """
-    A object that can be pickled, with a cache that is not pickled
+    A object that can be saved to file, with a cache that is not saved
     """
     def __init__(self):
         self._cache = {}
@@ -15,23 +12,16 @@ class CacheObject(object):
         self._cache.clear()
         return self.__dict__
 
-    def tofile(self, filename):
-        f = file(filename, 'w')
-        pickle.dump(self, f)
-        f.close()
+    def __setstate__(self, state):
+        self.__dict__.update(state)
 
-    @staticmethod
-    def fromfile(filename):
-        f = file(filename, 'r')
-        obj = pickle.load(f)
-        f.close()
-        return obj
+    def to_file(self, file_name):
+        np.savez(file_name, **self.__getstate__())
 
-# def tofile(obj, filename):
-#     f = file(filename, 'w')
-#     pickle.dump(obj, f)
+    @classmethod
+    def from_file(cls, file_name):
+        npzfile = np.load(file_name)
 
-# def fromfile(filename):
-#     f = file(filename, 'r')
-#     return pickle.load(f)
-
+        self = cls.__new__(cls)
+        self.__setstate__(npzfile)
+        return self
