@@ -1,7 +1,7 @@
 
 import numpy as np
 
-import ipdb
+# import ipdb
 
 class CacheObject(object):
     """
@@ -21,7 +21,6 @@ class CacheObject(object):
         d = {}
         d['__class__'] = self.__class__
         d['__dict__'] = self.__getstate__()
-        ipdb.set_trace()
         np.savez(file_name, **d)
 
     @staticmethod

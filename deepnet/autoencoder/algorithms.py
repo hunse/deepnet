@@ -1,5 +1,5 @@
 
-# import collections
+import collections
 import time
 
 import numpy as np
@@ -39,8 +39,8 @@ def sgd_minibatch_fn(trainer, rate, clip=None):
     return theano.function([x], cost, updates=updates.items(),
                            allow_input_downcast=True)
 
-def sgd(trainer, images, timages=None, test_fn=None,
-        nepochs=30, rate=0.05, clip=(-1,1), show=True, vlims=None):
+def sgd(trainer, images, timages=None, test_fn=None, n_epochs=30, rate=0.05,
+        clip=(-1,1), show=True, vlims=None, save_fn=None):
     """
     Unsupervised training using Stochasitc Gradient Descent (SGD)
     """
@@ -49,7 +49,7 @@ def sgd(trainer, images, timages=None, test_fn=None,
         timages = images[:500]
 
     print "Performing SGD on a %d x %d autoencoder for %d epochs"\
-        % (trainer.network.nvis, trainer.network.nhid, nepochs)
+        % (trainer.network.nvis, trainer.network.nhid, n_epochs)
     print trainer.train_hypers
     # print trainer.get_train_params()
 
@@ -68,9 +68,11 @@ def sgd(trainer, images, timages=None, test_fn=None,
     else:
         raise ValueError("Invalid input image shape %s" % images.shape)
 
-    # stats = {'rmse': [], 'hidact': []}
-    stats = {}
-    for epoch in xrange(nepochs):
+    stats = dict(algorithm='sgd', n_epochs=0,
+                 hypers=dict(trainer.train_hypers))
+    trainer.network.train_stats.append(stats)
+
+    for epoch in xrange(n_epochs):
         # rate = rates[epoch] if epoch < len(rates) else rates[-1]
         cost = 0
 
@@ -82,21 +84,24 @@ def sgd(trainer, images, timages=None, test_fn=None,
         test_stats = test(trainer, timages,
                           test_fn=test_fn, show=show, fignum=101, vlims=vlims)
 
+        stats['n_epochs'] += 1
         for k, v in test_stats.items():
-            if k in stats: stats[k].append(v)
-            else: stats[k] = [v]
+            if k not in stats: stats[k] = []
+            stats[k].append(v)
 
         print "Epoch %d finished, t = %0.2f s, cost = %0.3e, %s" \
             % (epoch, t, cost, str(["%s = %0.2e" % (k,v) for k,v in test_stats.items()]))
 
-    # trainer.train_stats['pretrain'] = stats
-    return stats
+        if save_fn is not None:
+            save_fn()
+            # trainer.network.to_file(save_name)
 
 
 def test(trainer, timages, test_fn=None, show=True, fignum=None, vlims=None):
     import matplotlib.pyplot as plt
     # from ..image_tools import *
-    from ..image_tools import compare, activations, filters
+    # from ..image_tools import compare, activations, filters
+    from .. import image_tools as imtools
 
     if test_fn is None:
         test_fn = trainer.network.compVHVraw
@@ -106,9 +111,11 @@ def test(trainer, timages, test_fn=None, show=True, fignum=None, vlims=None):
     x = timages.reshape((len(timages), -1))
     ha, h, ya, y = test_fn(x)
 
-    rmse = np.sqrt(((x - y)**2).mean(axis=1)).mean()
+    rmse = imtools.rmse(x, y).mean()
     act = h.mean()
-    test_stats = {'rmse': rmse, 'hidact': act}
+    # test_stats = {'rmse': rmse, 'hidact': act}
+    test_stats = collections.OrderedDict(
+        rmse=rmse, hid_mean=h.mean(), hid_min=h.min(), hid_max=h.max())
 
     ### Show current results
     if show:
@@ -118,16 +125,16 @@ def test(trainer, timages, test_fn=None, show=True, fignum=None, vlims=None):
         rows, cols = 3, 2
 
         ax = plt.subplot(rows, 1, 1)
-        compare([x.reshape(ims_shape), y.reshape(ims_shape)], vlims=vlims)
+        imtools.compare([x.reshape(ims_shape), y.reshape(ims_shape)], vlims=vlims)
 
         ax = plt.subplot(rows, cols, cols+1)
-        activations(ha, trainer.network.f.eval)
+        imtools.activations(ha, trainer.network.f.eval)
 
         ax = plt.subplot(rows, cols, cols+2)
-        activations(ya, trainer.network.g.eval)
+        imtools.activations(ya, trainer.network.g.eval)
 
         ax = plt.subplot(rows, 1, 3)
-        filters(trainer.network.filters)
+        imtools.filters(trainer.network.filters, rows=8, cols=16)
 
         plt.tight_layout()
         plt.draw()

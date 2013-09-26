@@ -95,10 +95,9 @@ class Autoencoder(CacheObject):
       b = visual node biases
       c = hidden node biases
     """
-    def __init__(self, visshape, hidshape, tied=True,
-                 W=None, V=None, b=None, c=None,
-                 f=None, g=None,
-                 Wstd=0.1, dtype=theano.config.floatX, seed=None):
+    def __init__(self, visshape, hidshape,
+                 W=None, V=None, b=None, c=None, f=None, g=None,
+                 dtype=theano.config.floatX, seed=None):
 
         super(Autoencoder, self).__init__()
 
@@ -106,7 +105,8 @@ class Autoencoder(CacheObject):
         self.visshape, self.nvis = check_shape(visshape)
         self.hidshape, self.nhid = check_shape(hidshape)
         self.shape = (self.nvis, self.nhid)
-        self.train_stats = {}    # dictionary of training statistics
+        self.train_stats = []    # list of training statistics
+        self.train_iters = 0     # list of training
 
         ### Set up random number generators
         if seed is None:
@@ -127,6 +127,8 @@ class Autoencoder(CacheObject):
             # W = npr.normal(size=self.shape, scale=Wstd)
             limit = 4*np.sqrt(6. / (self.nvis + self.nhid))
             W = npr.uniform(size=self.shape, low=-limit, high=limit)
+            # W = np.zeros(self.shape)
+
         # if V is None and not tied:
         #     V = np.zeros(W.T.shape, dtype=dtype)
         if b is None:
@@ -138,18 +140,17 @@ class Autoencoder(CacheObject):
         assert b.shape[0] == self.nvis
         assert c.shape[0] == self.nhid
 
-        # self.tied = tied
         self.W = theano.shared(name='W', value=np.asarray(W, dtype=dtype))
-        # self.V = self.W.T
-        self.V = theano.shared(name='V', value=np.asarray(V, dtype=dtype)) \
-            if not tied else self.W.T
+        self.V = self.W.T
+        # self.V = theano.shared(name='V', value=np.asarray(V, dtype=dtype)) \
+        #     if not tied else self.W.T
         self.b = theano.shared(name='b', value=np.asarray(b, dtype=dtype))
         self.c = theano.shared(name='c', value=np.asarray(c, dtype=dtype))
 
         self.params = [self.W, self.b, self.c]
-        if not tied: self.params.append(self.V)
-
         self.param_masks = {}
+        for param in self.params:
+            assert param.name in locals()
 
         ### initialize parameter increments
         # self.Winc = theano.shared(name='Winc',
@@ -157,24 +158,6 @@ class Autoencoder(CacheObject):
         # self.binc = theano.shared(name='binc', value=np.zeros(nvis, dtype=dtype))
         # self.cinc = theano.shared(name='cinc', value=np.zeros(nhid, dtype=dtype))
         # self.increments = [self.Winc, self.binc, self.cinc]
-
-    def __getstate__(self):
-        d = dict(self.__dict__)
-        for name in ['W', 'b', 'c']:
-            d[name] = d[name].get_value()
-        d['V'] = d['V'].get_value() if not self.tied else None
-        return d
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        for name in ['W', 'b', 'c']:
-            self.__dict__[name] = theano.shared(name=name, value=state[name])
-        self.params = [self.W, self.b, self.c]
-        if not self.tied:
-            self.V = theano.shared(name='V', value=state['V'])
-            self.params.append(self.V)
-        else:
-            self.V = self.W.T
 
     @property
     def filters(self):
@@ -185,6 +168,47 @@ class Autoencoder(CacheObject):
     def tied(self):
         return not (self.V in self.params)
 
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        params = collections.OrderedDict()
+        param_masks = collections.OrderedDict()
+        for param in self.params:
+            params[param.name] = param.get_value()
+            if param in self.param_masks:
+                param_masks[param.name] = self.param_masks[param]
+            del d[param.name]
+        d['params'] = params
+        d['param_masks'] = param_masks
+
+        # d = dict(self.__dict__)
+        # for name in ['W', 'b', 'c']:
+        #     d[name] = d[name].get_value()
+        # d['V'] = d['V'].get_value() if not self.tied else None
+        return d
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        params = []
+        param_masks = {}
+        for name, value in self.params.items():
+            s = theano.shared(name=name, value=value)
+            self.__dict__[name] = s  # add a member variable
+            params.append(s)         # add to params list
+            if name in self.param_masks:
+                param_masks[s] = self.param_masks[name]
+        self.params = params
+        self.param_masks = param_masks
+        if self.tied:
+            self.V = self.W.T
+        # for name in ['W', 'b', 'c']:
+        #     self.__dict__[name] = theano.shared(name=name, value=state[name])
+        # self.params = [self.W, self.b, self.c]
+        # if not self.tied:
+        #     self.V = theano.shared(name='V', value=state['V'])
+        #     self.params.append(self.V)
+        # else:
+        #     self.V = self.W.T
+
     def untie(self):
         if self.tied:
             V = self.W.get_value(borrow=False).T
@@ -194,20 +218,20 @@ class Autoencoder(CacheObject):
         else:
             raise Exception("Autoencoder is already untied")
 
-    def propup(self, vis, noisestd=0.0):
+    def propup(self, vis, noise_std=0.0):
         a = T.dot(vis, self.W) + self.c
-        if noisestd > 0.0:
-            a += self.rng.normal(size=a.shape, std=noisestd)
+        if noise_std > 0.0:
+            a += self.rng.normal(size=a.shape, std=noise_std)
         return a, self.f.theano(a)
 
-    def propdown(self, hid, noisestd=0.0):
+    def propdown(self, hid, noise_std=0.0):
         a = T.dot(hid, self.V) + self.b
-        if noisestd > 0.0:
-            a += self.rng.normal(size=a.shape, std=noisestd)
+        if noise_std > 0.0:
+            a += self.rng.normal(size=a.shape, std=noise_std)
         return a, self.g.theano(a)
 
-    def propVHV(self, x, noisestd=0.0):
-        ha, h = self.propup(x, noisestd=noisestd)
+    def propVHV(self, x, noise_std=0.0):
+        ha, h = self.propup(x, noise_std=noise_std)
         ya, y = self.propdown(h)
         return ha, h, ya, y
 
@@ -237,13 +261,13 @@ class Autoencoder(CacheObject):
         y = batch_call(self._cache['compVHV'], images)
         return y.reshape(shape + self.visshape)
 
-    def compVHVraw(self, rawimages):
+    def compVHVraw(self, flatimages):
         if not self._cache.has_key('compVHVraw'):
             x = T.matrix('x', dtype=self.dtype)
             ha, h, ya, y = self.propVHV(x)
             self._cache['compVHVraw'] = theano.function([x], [ha, h, ya, y], allow_input_downcast=True)
-        return self._cache['compVHVraw'](rawimages)
-        return batch_call(self._cache['compVHVraw'], rawimages, batchlen=2000)
+        return self._cache['compVHVraw'](flatimages)
+        # return batch_call(self._cache['compVHVraw'], rawimages, batchlen=2000)
 
 
 class SparseAutoencoder(Autoencoder):
@@ -265,9 +289,9 @@ class SparseAutoencoder(Autoencoder):
 
             mask = mask.reshape((self.nvis, self.nhid))
 
-        self.mask = mask
+        # self.mask = mask
         # self.param_masks[self.W] = T.cast(self.mask, dtype='int8')
-        self.param_masks[self.W] = self.mask
+        self.param_masks[self.W] = mask
         self.W.set_value(self.W.get_value() * mask)
 
         # if not self.tied:
