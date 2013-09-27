@@ -8,6 +8,8 @@ import numpy.random
 import theano
 import theano.tensor as T
 
+from .. import base
+
 # def sgd_minibatch_fn(trainer, rate, clip=None):
 #     x = T.matrix('x', dtype=trainer.dtype)
 #     cost, ups = trainer.get_cost_updates(x)
@@ -39,8 +41,10 @@ def sgd_minibatch_fn(trainer, rate, clip=None):
     return theano.function([x], cost, updates=updates.items(),
                            allow_input_downcast=True)
 
-def sgd(trainer, images, timages=None, test_fn=None, n_epochs=30, rate=0.05,
-        clip=(-1,1), show=True, vlims=None, save_fn=None):
+def sgd(trainer, images, timages=None, test_fn=None,
+        n_epochs=30, rate=0.05, clip=(-1,1),
+        show=base.display_available(), vlims=None,
+        save_fn=None):
     """
     Unsupervised training using Stochasitc Gradient Descent (SGD)
     """

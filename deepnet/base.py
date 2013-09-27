@@ -1,7 +1,11 @@
 
+import sys, os
 import numpy as np
 
 # import ipdb
+
+def display_available():
+    return ('DISPLAY' in os.environ)
 
 class CacheObject(object):
     """
