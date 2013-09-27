@@ -72,14 +72,14 @@ def algo_epochs(layer, algo):
     return sum([s['n_epochs'] for s in layer.train_stats
                 if s['algorithm'] == algo])
 
-sgd_params = [dict(n_epochs=6, rate=0.02, clip=(-1,1)) for i in net.layers]
+sgd_params = [dict(n_epochs=30, rate=0.05, clip=(-1,1)) for i in net.layers]
 
 if any(algo_epochs(layer, 'sgd') < sgd_params[i]['n_epochs']
        for i, layer in enumerate(net.layers)):
     images = patches[:]
     timages = patches[:500]
 
-    train_params = [{'rho': 0.01, 'lamb': 2, 'noise_std': 0.2},
+    train_params = [{'rho': 0.01, 'lamb': 5, 'noise_std': 0.2},
                     {'rho': 0.05, 'lamb': 0.1, 'noise_std': 0.2},
                     {'rho': 0.05, 'lamb': 0, 'noise_std': 0.2},
                     {'rho': 0.05, 'lamb': 0, 'noise_std': 0.2}]

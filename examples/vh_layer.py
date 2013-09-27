@@ -61,7 +61,7 @@ if 'filename' not in locals() or not os.path.exists(filename):
     plt.figure(101)
     raw_input("Please place the figure...")
 
-    sgd(trainer, patches, nepochs=3, rate=0.05, vlims=(-2,2))
+    sgd(trainer, patches, n_epochs=30, rate=0.05, vlims=(-2,2))
 
     if 'filename' in locals():
         layer.to_file(filename)
