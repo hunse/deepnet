@@ -283,6 +283,13 @@ class SparseAutoencoder(Autoencoder):
             a = npr.randint(low=0, high=M-m+1, size=self.nhid)
             b = npr.randint(low=0, high=N-n+1, size=self.nhid)
 
+            # sort, then shuffle along cols of a and rows of b
+            a = np.sort(a).reshape(self.hidshape).T
+            b = np.sort(b).reshape(self.hidshape)
+            [np.random.shuffle(a[:,j]) for j in xrange(a.shape[1])]
+            [np.random.shuffle(b[i,:]) for i in xrange(b.shape[0])]
+            a, b = a.flatten(), b.flatten()
+
             mask = np.zeros((M, N, self.nhid), dtype='bool')
             for i in xrange(self.nhid):
                 mask[a[i]:a[i]+m, b[i]:b[i]+n, i] = True
