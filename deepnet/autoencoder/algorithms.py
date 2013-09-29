@@ -72,7 +72,7 @@ def sgd(trainer, images, timages=None, test_fn=None,
     else:
         raise ValueError("Invalid input image shape %s" % images.shape)
 
-    stats = dict(algorithm='sgd', n_epochs=0,
+    stats = dict(algorithm='sgd', n_epochs=0, cost=[],
                  hypers=dict(trainer.train_hypers))
     trainer.network.train_stats.append(stats)
 
@@ -89,6 +89,7 @@ def sgd(trainer, images, timages=None, test_fn=None,
                           test_fn=test_fn, show=show, fignum=101, vlims=vlims)
 
         stats['n_epochs'] += 1
+        stats['cost'].append(cost)
         for k, v in test_stats.items():
             if k not in stats: stats[k] = []
             stats[k].append(v)
@@ -100,6 +101,7 @@ def sgd(trainer, images, timages=None, test_fn=None,
             save_fn()
             # trainer.network.to_file(save_name)
 
+    return stats
 
 def test(trainer, timages, test_fn=None, show=True, fignum=None, vlims=None):
     import matplotlib.pyplot as plt
