@@ -52,10 +52,11 @@ if 'filename' not in locals() or not os.path.exists(filename):
         tRef=0.02, tauRC=0.06, alpha=10.0, xint=-0.5, amp=1./41, sigma=0.05)
 
     layer = SparseAutoencoder(visshape=imshape, hidshape=(50,50),
-                              rfshape=(9,9), f=noisylif, g=linear)
+                              rfshape=(11,11), f=noisylif, g=linear)
 
     # train_params = {'rho': 0.01, 'lamb': 25, 'noise_std': 0.2}
-    train_params = {'rho': 0.01, 'lamb': 5, 'noise_std': 0.2}
+    # train_params = {'rho': 0.01, 'lamb': 5, 'noise_std': 0.2}
+    train_params = {'rho': 0.05, 'lamb': 5, 'noise_std': 0.2}
     trainer = SparseTrainer(layer, **train_params)
 
     plt.figure(101)
