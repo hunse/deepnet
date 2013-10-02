@@ -4,9 +4,6 @@ import numpy as np
 
 # import ipdb
 
-def display_available():
-    return ('DISPLAY' in os.environ)
-
 class CacheObject(object):
     """
     A object that can be saved to file, with a cache that is not saved

@@ -103,6 +103,8 @@ if any(algo_epochs(layer, 'sgd') < sgd_params[i]['n_epochs']
 
 if 1:
     results = net.compVHV(patches)
-    imtools.compare([patches, results], vlims=(-2,2))
     rmses = imtools.rmse(patches, results)
     print "rmse", rmses.mean(), rmses.std()
+
+    if imtools.display_available():
+        imtools.compare([patches, results], vlims=(-2,2))

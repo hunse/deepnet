@@ -6,6 +6,9 @@ import numpy.random as npr
 
 import matplotlib.pyplot as plt
 
+def display_available():
+    return ('DISPLAY' in os.environ)
+
 # figsize = (13,8.5)
 
 # def figure(fignum=None, figsize=(8, 6)):

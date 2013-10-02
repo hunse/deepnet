@@ -8,7 +8,7 @@ import numpy.random
 import theano
 import theano.tensor as T
 
-from .. import base
+from .. import image_tools as imtools
 
 # def sgd_minibatch_fn(trainer, rate, clip=None):
 #     x = T.matrix('x', dtype=trainer.dtype)
@@ -43,7 +43,7 @@ def sgd_minibatch_fn(trainer, rate, clip=None):
 
 def sgd(trainer, images, timages=None, test_fn=None,
         n_epochs=30, rate=0.05, clip=(-1,1),
-        show=base.display_available(), vlims=None,
+        show=imtools.display_available(), vlims=None,
         save_fn=None):
     """
     Unsupervised training using Stochasitc Gradient Descent (SGD)
@@ -104,7 +104,7 @@ def sgd(trainer, images, timages=None, test_fn=None,
     return stats
 
 def test(trainer, timages, test_fn=None,
-         show=base.display_available(), fignum=None, vlims=None):
+         show=imtools.display_available(), fignum=None, vlims=None):
     # from ..image_tools import *
     # from ..image_tools import compare, activations, filters
     from .. import image_tools as imtools
