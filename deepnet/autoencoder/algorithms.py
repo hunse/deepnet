@@ -54,8 +54,8 @@ def sgd(trainer, images, timages=None, test_fn=None,
 
     print "Performing SGD on a %d x %d autoencoder for %d epochs"\
         % (trainer.network.nvis, trainer.network.nhid, n_epochs)
-    print trainer.train_hypers
-    # print trainer.get_train_params()
+    print "SGD params: %s" % dict(n_epochs=n_epochs, rate=rate, clip=clip)
+    print "Trainer params: %s" % trainer.train_hypers
 
     ### create minibatch learning function
     train = sgd_minibatch_fn(trainer, rate=rate, clip=clip)

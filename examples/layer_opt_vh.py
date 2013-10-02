@@ -51,7 +51,7 @@ noisylif = NoisyLIFApprox(
     tRef=0.02, tauRC=0.06, alpha=10.0, xint=-0.5, amp=1./41, sigma=0.05)
 
 def objective(args):
-    n_epochs = 30
+    n_epochs = 10
     rho = 0.01
     lamb = 5
     noise_std = 0.2
@@ -71,16 +71,18 @@ def objective(args):
     stats = sgd(trainer, patches,
                 n_epochs=n_epochs, rate=rate, clip=clip, show=False)
 
-    filename = 'results/layer_opt_vh_cost=%0.3e.pkl'
+    cost = stats['cost'][-1]
+
+    filename = 'results/layer_opt_vh_cost=%0.3e.npz' % cost
     layer.to_file(filename)
 
-    cost = stats['cost'][-1]
     return cost
 
+ratio = np.log(10)
 space = (hyperopt.hp.randint('rflen', 14) + 7,
-         hyperopt.hp.uniform('rate', 1e-5, 1),
-         hyperopt.hp.uniform('clip', 1e-3, 1e3))
+         hyperopt.hp.loguniform('rate', -5*ratio, 0),
+         hyperopt.hp.loguniform('clip', -3*ratio, 3*ratio))
 
-best = hyperopt.fmin(objective, space, algo=hyperopt.tpe.suggest, max_evals=100)
+best = hyperopt.fmin(objective, space, algo=hyperopt.tpe.suggest, max_evals=20)
 print best
 
