@@ -103,8 +103,8 @@ def sgd(trainer, images, timages=None, test_fn=None,
 
     return stats
 
-def test(trainer, timages, test_fn=None, show=True, fignum=None, vlims=None):
-    import matplotlib.pyplot as plt
+def test(trainer, timages, test_fn=None,
+         show=base.display_available(), fignum=None, vlims=None):
     # from ..image_tools import *
     # from ..image_tools import compare, activations, filters
     from .. import image_tools as imtools
@@ -125,6 +125,8 @@ def test(trainer, timages, test_fn=None, show=True, fignum=None, vlims=None):
 
     ### Show current results
     if show:
+        import matplotlib.pyplot as plt
+
         # image_tools.figure(fignum=fignum, figsize=(12,12))
         plt.figure(fignum)
         plt.clf()

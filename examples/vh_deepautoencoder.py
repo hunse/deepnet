@@ -95,7 +95,7 @@ if any(algo_epochs(layer, 'sgd') < sgd_params[i]['n_epochs']
             test_fn = net.propVHV_fn(maxlayer=i)
             save_fn = lambda: net.to_file(loadfile)
             auto.sgd(trainer, images, timages, test_fn=test_fn,
-                     show=True, vlims=(-2,2), save_fn=save_fn,
+                     vlims=(-2,2), save_fn=save_fn,
                      **sgd_param)
 
         images = layer.compup(images)
