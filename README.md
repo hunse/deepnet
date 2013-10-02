@@ -1,4 +1,4 @@
 deepnet
 =======
 
-Repository of code for training deep networks
+Repository of code for training deep neural networks
