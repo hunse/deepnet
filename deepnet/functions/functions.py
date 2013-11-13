@@ -101,6 +101,9 @@ class NoisyLIFApprox(LIF):
 
         j = sigma*T.log1p(T.exp(alpha*(x - xint)/sigma))
         v = amp / (t_ref + tau_rc*T.log1p(1./j))
+        # v = amp / (t_ref + tau_rc*(T.log1p(j) - T.log(j)))
+        # j = T.log1p(T.exp(alpha*(x - xint)/sigma))
+        # v = amp / (t_ref + tau_rc*(T.log(sigma + 1./j) - T.log(sigma)))
         return T.switch(j > 0, v, 0.0)
 
 
@@ -164,7 +167,7 @@ def file_test():
     plt.clf()
     plt.plot(x, y)
     plt.show()
-    
+
 
 if __name__ == '__main__':
     file_test()

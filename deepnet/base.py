@@ -33,3 +33,7 @@ class CacheObject(object):
         self = cls.__new__(cls)
         self.__setstate__(d)
         return self
+
+def from_file(file_name):
+    """Load an object (layer, network, etc.) from a given file"""
+    return CacheObject.from_file(file_name)

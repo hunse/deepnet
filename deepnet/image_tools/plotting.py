@@ -23,11 +23,16 @@ def display_available():
 
 def show(image, ax=None, vlims=None, invert=False):
     kwargs = dict(interpolation='none')
-    if vlims is not None:
-        assert type(vlims) == tuple and len(vlims) == 2
-        kwargs['vmin'], kwargs['vmax'] = vlims
-    if image.ndim < 3:
+    if image.ndim == 2:
         kwargs['cmap'] = 'gray' if not invert else 'gist_yarg'
+        if vlims is not None:
+            kwargs['vmin'], kwargs['vmax'] = vlims
+    elif image.ndim == 3:
+        assert image.shape[2] == 3
+        if vlims is not None:
+            image = (image.clip(*vlims) - vlims[0]) / (vlims[1] - vlims[0])
+    else:
+        raise ValueError("Wrong number of image dimensions")
 
     if ax is None: ax = plt.gca()
     ax.imshow(image, **kwargs)
@@ -42,18 +47,18 @@ def tile(images, ax=None, rows=16, cols=24, random=False,
     """
 
     n_images = images.shape[0]
-    imshape = images.shape[1:3]
-    m, n = imshape
-    n_channels = images.shape[3] if images.ndim > 3 else 1
+    imshape = images.shape[1:]
+    m, n = imshape[:2]
+    n_channels = imshape[2] if len(imshape) > 2 else 1
 
     inds = np.arange(n_images)
-    if random: npr.shuffle(inds)
+    if random:
+        npr.shuffle(inds)
 
-    if n_channels == 1:
-        img = np.zeros((m*rows, n*cols), dtype=images.dtype)
-    else:
-        img = np.zeros((m*rows, n*cols, n_channels), dtype=images.dtype)
-
+    img_shape = (m*rows, n*cols)
+    if n_channels > 1:
+        img_shape = img_shape + (n_channels,)
+    img = np.zeros(img_shape, dtype=images.dtype)
     for ind in xrange(min(rows*cols, n_images)):
         i,j = (ind / cols, ind % cols)
         img[i*m:(i+1)*m, j*n:(j+1)*n] = images[inds[ind]]
@@ -80,16 +85,21 @@ def compare(imagesetlist,
             ax=None, rows=5, cols=20, vlims=None, grid=True, random=False):
     d = len(imagesetlist)
 
-    nimages = imagesetlist[0].shape[0]
+    n_images = imagesetlist[0].shape[0]
     imshape = imagesetlist[0].shape[1:]
-    m, n = imshape
-    img = np.zeros((d*m*rows, n*cols))
+    m, n = imshape[:2]
+    n_channels = imshape[2] if len(imshape) > 2 else 1
 
-    inds = np.arange(nimages)
+    inds = np.arange(n_images)
     if random:
         npr.shuffle(inds)
 
-    for ind in range(min(rows*cols, nimages)):
+    img_shape = (d*m*rows, n*cols)
+    if n_channels > 1:
+        img_shape = img_shape + (n_channels,)
+    img = np.zeros(img_shape, dtype=imagesetlist[0].dtype)
+
+    for ind in range(min(rows*cols, n_images)):
         i,j = (ind / cols, ind % cols)
         for k in xrange(d):
             img[(d*i+k)*m:(d*i+k+1)*m, j*n:(j+1)*n] = \

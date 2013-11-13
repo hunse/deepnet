@@ -40,28 +40,49 @@ def normalize(p):
 patches = normalize(patches)
 patches = patches.clip(-3, 3)
 
+# patches = (2*(patches > 0) - 1).astype('float32')
+
 ################################################################################
-loadfile = 'results/vh_tied.npz'
+# loadfile = 'results/vh_tied.npz'
+# loadfile = 'results/vh_binary.npz'
+loadfile = 'results/vh_flatlif.npz'
 if not os.path.exists(loadfile):
 
     linear = func.Linear(slope=1.0)
+    # noisylif = func.NoisyLIFApprox(
+    #     tRef=0.02, tauRC=0.06, alpha=10.0, xint=-0.5, amp=1./41, sigma=0.05)
     noisylif = func.NoisyLIFApprox(
-        tRef=0.02, tauRC=0.06, alpha=10.0, xint=-0.5, amp=1./41, sigma=0.05)
+        tRef=0.002, tauRC=0.05, alpha=0.7, xint=-0.5, amp=1./50, sigma=0.001)
 
     # params = [(auto.SparseAutoencoder, (50, 50), {'rfshape': (9,9), 'f': noisylif, 'g': linear}),
+    #           (auto.Autoencoder, (40, 40), {'f': noisylif, 'g': noisylif}),
     #           (auto.Autoencoder, (30, 30), {'f': noisylif, 'g': noisylif}),
-    #           (auto.Autoencoder, (20, 20), {'f': noisylif, 'g': noisylif}),
-    #           (auto.Autoencoder, (15, 15), {'f': linear, 'g': noisylif})]
+    #           (auto.Autoencoder, (20, 20), {'f': linear, 'g': noisylif})]
 
-    params = ['results/vh_layer.npz',
-              # (auto.SparseAutoencoder, (40, 40), {'rfshape': (13, 13), 'f': noisylif, 'g': noisylif}),
-              'results/vh_tied.npz.layer_1.npz',
-              # (auto.Autoencoder, (30, 30), {'f': noisylif, 'g': noisylif}),
-              # 'results/vh_tied.npz.layer_2.npz',
-              'results/vh_tied.npz.layer_2_2013-10-02_13:33:09.npz',
-              # (auto.Autoencoder, (20, 20), {'f': linear, 'g': noisylif})
-              'results/vh_tied.npz.layer_3_2013-10-02_13:36:00.npz'
-              ]
+    params = [
+        #(auto.SparseAutoencoder, (50, 50), {'rfshape': (9,9), 'f': noisylif, 'g': linear}),
+        "results/vh_flatlif.npz.layer_0_2013-10-07_12:00:39.npz",
+        # (auto.Autoencoder, (40, 40), {'f': noisylif, 'g': noisylif}),
+        "results/vh_flatlif.npz.layer_1_2013-10-07_12:20:10.npz",
+        # (auto.Autoencoder, (30, 30), {'f': noisylif, 'g': noisylif}),
+        "results/vh_flatlif.npz.layer_2_2013-10-07_12:25:06.npz",
+        (auto.Autoencoder, (20, 20), {'f': linear, 'g': noisylif})]
+
+    # params = ['results/vh_flatlif.npz.layer_0_2013-10-04_16:07:47.npz',
+    #           # (auto.Autoencoder, (40, 40), {'f': noisylif, 'g': noisylif}),
+    #           # (auto.SparseAutoencoder, (40, 40), {'rfshape': (13, 13), 'f': noisylif, 'g': noisylif}),
+    #           (auto.Autoencoder, (30, 30), {'f': noisylif, 'g': noisylif}),
+    #           (auto.Autoencoder, (20, 20), {'f': linear, 'g': noisylif})]
+
+    # params = ['results/vh_layer.npz',
+    #           # (auto.SparseAutoencoder, (40, 40), {'rfshape': (13, 13), 'f': noisylif, 'g': noisylif}),
+    #           'results/vh_tied.npz.layer_1.npz',
+    #           # (auto.Autoencoder, (30, 30), {'f': noisylif, 'g': noisylif}),
+    #           # 'results/vh_tied.npz.layer_2.npz',
+    #           'results/vh_tied.npz.layer_2_2013-10-02_13:33:09.npz',
+    #           # (auto.Autoencoder, (20, 20), {'f': linear, 'g': noisylif})
+    #           'results/vh_tied.npz.layer_3_2013-10-02_13:36:00.npz'
+    #           ]
 
     layers = []
     for param in params:
@@ -112,10 +133,15 @@ if any(algo_epochs(layer, 'sgd') < sgd_params[i]['n_epochs']
     #                 {'rho': 0.05, 'lamb': 0, 'noise_std': 0.2},
     #                 {'rho': 0.05, 'lamb': 0, 'noise_std': 0.2}]
 
-    train_params = [{'rho': 0.05, 'lamb': 5, 'noise_std': 0.2},
-                    {'rho': 0.05, 'lamb': 1, 'noise_std': 0.2},
-                    {'rho': 0.05, 'lamb': 0, 'noise_std': 0.2},
-                    {'rho': 0.05, 'lamb': 0, 'noise_std': 0.2}]
+    # train_params = [{'rho': 0.05, 'lamb': 5, 'noise_std': 0.2},
+    #                 {'rho': 0.05, 'lamb': 1, 'noise_std': 0.2},
+    #                 {'rho': 0.05, 'lamb': 0, 'noise_std': 0.2},
+    #                 {'rho': 0.05, 'lamb': 0, 'noise_std': 0.2}]
+
+    train_params = [{'rho': 0.01, 'lamb': 5, 'noise_std': 0.1},
+                    {'rho': 0.05, 'lamb': 0, 'noise_std': 0.1},
+                    {'rho': 0.05, 'lamb': 0, 'noise_std': 0.1},
+                    {'rho': 0.05, 'lamb': 0, 'noise_std': 0.0}]
 
     for i, layer in enumerate(net.layers):
         sgd_param = sgd_params[i]

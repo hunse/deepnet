@@ -105,21 +105,21 @@ class DeepAutoencoder(CacheObject):
         return theano.function(
             [x], [ha[-1], h[-1], va[0], v[0]], allow_input_downcast=True)
 
-    def compup(self, images):
+    def compup(self, images, maxlayer=-1):
         visshape = self.layers[0].visshape
         assert images.shape[-2:] == visshape
         shape = images.shape[:-2]
         images = images.reshape((np.prod(shape), np.prod(visshape)))
 
-        if not self._cache.has_key('compup'):
+        key = 'compup%d' % maxlayer
+        if key not in self._cache:
             x = T.matrix('x', dtype=self.dtype)
-            ha, h, va, v = self.propVHV(x)
-            self._cache['compup'] = theano.function(
+            ha, h, va, v = self.propVHV(x, maxlayer=maxlayer)
+            self._cache[key] = theano.function(
                 [x], h[-1], allow_input_downcast=True)
-        y = autoencoder.batch_call(
-            self._cache['compup'], images, batchlen=2000)
+        y = autoencoder.batch_call(self._cache[key], images, batchlen=2000)
         # return imageset.imageset_like(newimages, shape=self.layers[-1].hidshape)
-        return y.reshape(shape + self.layers[-1].hidshape)
+        return y.reshape(shape + self.layers[maxlayer].hidshape)
 
     def compVHV(self, images):
         visshape = self.layers[0].visshape

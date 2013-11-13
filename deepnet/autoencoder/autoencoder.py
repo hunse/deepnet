@@ -12,11 +12,6 @@ import scipy as sp
 
 import matplotlib.pyplot as plt
 
-# gpuflags = 'device=gpu,floatX=float32'
-# if os.environ.has_key('THEANO_FLAGS'):
-#     os.environ['THEANO_FLAGS'] += gpuflags
-# else:
-#     os.environ['THEANO_FLAGS'] = gpuflags
 import theano
 import theano.tensor as T
 import theano.sandbox.rng_mrg
@@ -38,17 +33,11 @@ def check_shape(shape):
         size = int(shape)
         return (size, 1), size
 
-def numel_shape(shape):
-    p = 1
-    for d in shape:
-        p *= d
-    return p
-
-def shared_to_symbolic(shared):
-    value = shared.get_value(borrow=True)
-    if value.ndim == 2: return T.matrix(name=shared.name, dtype=value.dtype)
-    elif value.ndim == 1: return T.vector(name=shared.name, dtype=value.dtype)
-    else: raise NotImplementedError("Higher (> 2) dimensional tensors not implemented")
+# def shared_to_symbolic(shared):
+#     value = shared.get_value(borrow=True)
+#     if value.ndim == 2: return T.matrix(name=shared.name, dtype=value.dtype)
+#     elif value.ndim == 1: return T.vector(name=shared.name, dtype=value.dtype)
+#     else: raise NotImplementedError("Higher (> 2) dimensional tensors not implemented")
 
 def batch_call(func, data, batchlen=5000):
     ### assume each row of data is an example
@@ -102,9 +91,12 @@ class Autoencoder(CacheObject):
         super(Autoencoder, self).__init__()
 
         self.dtype = dtype
-        self.visshape, self.nvis = check_shape(visshape)
-        self.hidshape, self.nhid = check_shape(hidshape)
-        self.shape = (self.nvis, self.nhid)
+        # self.visshape, self.nvis = check_shape(visshape)
+        # self.hidshape, self.nhid = check_shape(hidshape)
+        self.visshape = visshape
+        self.hidshape = hidshape
+        self.shape = (np.prod(self.visshape), np.prod(self.hidshape))
+        self.nvis, self.nhid = self.shape
         self.train_stats = []    # list of training statistics
         self.train_iters = 0     # list of training
 
@@ -125,20 +117,20 @@ class Autoencoder(CacheObject):
         ### initialize parameters
         if W is None:
             # W = npr.normal(size=self.shape, scale=Wstd)
-            limit = 4*np.sqrt(6. / (self.nvis + self.nhid))
+            limit = 4*np.sqrt(6. / np.sum(self.shape))
             W = npr.uniform(size=self.shape, low=-limit, high=limit)
             # W = np.zeros(self.shape)
 
         # if V is None and not tied:
         #     V = np.zeros(W.T.shape, dtype=dtype)
         if b is None:
-            b = np.zeros(self.nvis, dtype=dtype)
+            b = np.zeros(self.shape[0], dtype=dtype)
         if c is None:
-            c = np.zeros(self.nhid, dtype=dtype)
+            c = np.zeros(self.shape[1], dtype=dtype)
 
-        assert W.shape[0] == self.nvis and W.shape[1] == self.nhid
-        assert b.shape[0] == self.nvis
-        assert c.shape[0] == self.nhid
+        assert W.shape == self.shape
+        assert b.shape[0] == self.shape[0]
+        assert c.shape[0] == self.shape[1]
 
         self.W = theano.shared(name='W', value=np.asarray(W, dtype=dtype))
         self.V = self.W.T
@@ -162,7 +154,7 @@ class Autoencoder(CacheObject):
     @property
     def filters(self):
         filters = self.W.get_value(borrow=True).T
-        return filters.reshape((self.nhid,) + self.visshape)
+        return filters.reshape((self.shape[1],) + self.visshape)
 
     @property
     def tied(self):
@@ -236,27 +228,29 @@ class Autoencoder(CacheObject):
         return ha, h, ya, y
 
     def compup(self, images):
-        assert images.shape[-2:] == self.visshape
-        shape = images.shape[:-2]
-        images = images.reshape((numel_shape(shape), self.nvis))
+        assert images.shape[1:] == self.visshape
+        shape = images.shape[:1]
+        images = images.reshape((np.prod(shape), self.shape[0]))
 
         if not self._cache.has_key('compup'):
             v = T.matrix('v', dtype=self.dtype)
             ha, h = self.propup(v)
-            self._cache['compup'] = theano.function([v], h, allow_input_downcast=True)
+            self._cache['compup'] = theano.function(
+                [v], h, allow_input_downcast=True)
 
         h = batch_call(self._cache['compup'], images)
         return h.reshape(shape + self.hidshape)
 
     def compVHV(self, images):
-        assert images.shape[-2:] == self.visshape
-        shape = images.shape[:-2]
-        images = images.reshape((numel_shape(shape), self.nvis))
+        assert images.shape[1:] == self.visshape
+        shape = images.shape[:1]
+        images = images.reshape((np.prod(shape), self.shape[0]))
 
         if not self._cache.has_key('compVHV'):
             x = T.matrix('x', dtype=self.dtype)
             ha, h, ya, y = self.propVHV(x)
-            self._cache['compVHV'] = theano.function([x], y, allow_input_downcast=True)
+            self._cache['compVHV'] = theano.function(
+                [x], y, allow_input_downcast=True)
 
         y = batch_call(self._cache['compVHV'], images)
         return y.reshape(shape + self.visshape)
@@ -265,7 +259,8 @@ class Autoencoder(CacheObject):
         if not self._cache.has_key('compVHVraw'):
             x = T.matrix('x', dtype=self.dtype)
             ha, h, ya, y = self.propVHV(x)
-            self._cache['compVHVraw'] = theano.function([x], [ha, h, ya, y], allow_input_downcast=True)
+            self._cache['compVHVraw'] = theano.function(
+                [x], [ha, h, ya, y], allow_input_downcast=True)
         return self._cache['compVHVraw'](flatimages)
         # return batch_call(self._cache['compVHVraw'], rawimages, batchlen=2000)
 
@@ -275,13 +270,13 @@ class SparseAutoencoder(Autoencoder):
         super(SparseAutoencoder, self).__init__(**kwargs)
 
         self.rfshape = rfshape
-        M, N = self.visshape
+        M, N = self.visshape[:2]
         m, n = self.rfshape
 
         if mask is None:
             # find positions of top-left corner
-            a = npr.randint(low=0, high=M-m+1, size=self.nhid)
-            b = npr.randint(low=0, high=N-n+1, size=self.nhid)
+            a = npr.randint(low=0, high=M-m+1, size=self.shape[1])
+            b = npr.randint(low=0, high=N-n+1, size=self.shape[1])
 
             # sort, then shuffle along cols of a and rows of b
             a = np.sort(a).reshape(self.hidshape).T
@@ -290,11 +285,13 @@ class SparseAutoencoder(Autoencoder):
             [np.random.shuffle(b[i,:]) for i in xrange(b.shape[0])]
             a, b = a.flatten(), b.flatten()
 
-            mask = np.zeros((M, N, self.nhid), dtype='bool')
-            for i in xrange(self.nhid):
+            mask = np.zeros((M, N, self.shape[1]), dtype='bool')
+            for i in xrange(self.shape[1]):
                 mask[a[i]:a[i]+m, b[i]:b[i]+n, i] = True
 
-            mask = mask.reshape((self.nvis, self.nhid))
+            if len(self.visshape) == 3:
+                mask = mask.repeat(self.visshape[2], axis=1)
+            mask = mask.reshape(self.shape)
 
         # self.mask = mask
         # self.param_masks[self.W] = T.cast(self.mask, dtype='int8')
@@ -310,7 +307,10 @@ class SparseAutoencoder(Autoencoder):
     @property
     def filters(self):
         filters = self.W.get_value(borrow=True).T[self.param_masks[self.W].T]
-        return filters.reshape((self.nhid,) + self.rfshape)
+        shape = (self.shape[1],) + self.rfshape
+        if len(self.visshape) == 3:
+            shape = shape + (self.visshape[2],)
+        return filters.reshape(shape)
 
     def untie(self):
         super(SparseAutoencoder, self).untie()

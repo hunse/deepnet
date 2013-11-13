@@ -66,7 +66,7 @@ class SparseTrainer(Trainer):
         self.train_hypers.update(train_hypers)
 
         ### initialize training parameters
-        q = np.zeros(self.network.nhid, dtype=self.dtype)
+        q = np.nan * np.ones(self.network.nhid, dtype=self.dtype)
         self.q = theano.shared(name='q', value=q)
 
         self.train_params = [q]
@@ -74,7 +74,8 @@ class SparseTrainer(Trainer):
     def get_cost_grads_updates(self, x):
         ha, h, ya, y = self.network.propVHV(x, noise_std=self.train_hypers['noise_std'])
 
-        q = 0.9*self.q + 0.1*h.mean(axis=0)
+        q = T.switch(T.isnan(self.q), h.mean(axis=0),
+                     0.9*self.q + 0.1*h.mean(axis=0))
 
         lamb = T.cast(self.train_hypers['lamb'], self.dtype)
         rho = T.cast(self.train_hypers['rho'], self.dtype)

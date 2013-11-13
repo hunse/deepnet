@@ -17,7 +17,7 @@ plt.ion()
 import deepnet
 import deepnet.autoencoder
 from deepnet.autoencoder import Autoencoder, SparseAutoencoder
-from deepnet.autoencoder import SparseTrainer, sgd
+from deepnet.autoencoder import SparseTrainer, sgd, lbfgs
 from deepnet.functions import Linear, NoisyLIFApprox
 import deepnet.image_tools
 
@@ -69,6 +69,18 @@ if 'filename' not in locals() or not os.path.exists(filename):
 
 else:
     layer = deepnet.CacheObject.from_file(filename)
+    print "loaded layer from file: %s" % filename
+
+### untied training
+if 1:
+    if layer.tied:
+        layer.untie()
+
+    train_params = {'rho': 0.05, 'lamb': 5, 'noise_std': 0}
+    trainer = SparseTrainer(layer, **train_params)
+
+    lbfgs(trainer, patches, n_evals=30, vlims=(-2,2))
+
 
 ### test the layer
 if 1:
